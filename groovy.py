@@ -2,6 +2,8 @@ from config import TOKEN
 
 import asyncio
 
+import os
+
 import discord
 import youtube_dl
 
@@ -131,4 +133,5 @@ async def on_ready():
 
 
 bot.add_cog(Music(bot))
+#TOKEN = os.getenv('GROOVY_TOKEN')
 bot.run(TOKEN)
