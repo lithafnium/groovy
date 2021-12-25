@@ -1,3 +1,5 @@
+from config import TOKEN
+
 import asyncio
 
 import discord
@@ -129,4 +131,4 @@ async def on_ready():
 
 
 bot.add_cog(Music(bot))
-bot.run("OTI0MzU3ODcxMTc1NjI2Nzgy.YcdZWg.xZMIvLUfSZKWhTahNNg8-KyE9vE")
+bot.run(TOKEN)
