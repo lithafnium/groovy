@@ -7,6 +7,8 @@ import os
 
 import discord
 import youtube_dl
+import itertools
+from functools import partial
 
 from discord.ext import commands
 
@@ -47,11 +49,10 @@ class YTDLSource(discord.PCMVolumeTransformer):
         pass
 
     @classmethod
-    async def from_url(cls, url, *, loop=None):
-        loop = loop or asyncio.get_event_loop()
-        data = await loop.run_in_executor(
-            None, lambda: ytdl.extract_info(url, download=False)
-        )
+    async def from_url(cls, url, *, loop):
+        print("loop:", loop)
+        to_run = partial(ytdl.extract_info, url=url, download=False)
+        data = await loop.run_in_executor(None, to_run)
 
         if "entries" in data:
             # take first item from a playlist
@@ -61,45 +62,66 @@ class YTDLSource(discord.PCMVolumeTransformer):
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
 
 
+class MusicPlayer:
+    def __init__(self, ctx):
+        self.bot = ctx.bot
+        self._guild = ctx.guild
+        self._channel = ctx.channel
+        self._cog = ctx.cog
+
+        self.queue = asyncio.Queue()
+        self.next = asyncio.Event()
+
+        self.np = None  # Now playing message
+        self.volume = 0.5
+        self.current = None
+        self.ctx = ctx
+        self.ctx.bot.loop.create_task(self.player_loop())
+
+    async def player_loop(self):
+        await self.bot.wait_until_ready()
+        while not self.bot.is_closed():
+            self.next.clear()
+
+            player = await self.queue.get()
+            self.current = player
+
+            self._guild.voice_client.play(
+                player,
+                after=self.toggle_next,
+            )
+
+            self.np = await self._channel.send("Now playing: {}".format(player.title))
+            await self.next.wait()
+
+    def toggle_next(self, e):
+        self.ctx.bot.loop.call_soon_threadsafe(self.next.set)
+
+
 class Music(commands.Cog):
     def __init__(self, bot):
+        self.music_player = None
         self.bot = bot
-        self.queue = []
-
-    def after_song(self):
-        self.queue.pop(0)
-        pass
 
     @commands.command()
     async def join(self, ctx, *, channel: discord.VoiceChannel):
         """Joins a voice channel"""
         if ctx.voice_client is not None:
+            ctx.voice_client.source.volume = 50
             return await ctx.voice_client.move_to(channel)
 
         await channel.connect()
+        print(self.bot.voice_clients)
 
     @commands.command()
     async def play(self, ctx, *, url):
-        """play from a url (same as yt, but doesn't predownload)"""
-        player = await YTDLSource.from_url(url, loop=self.bot.loop)
-        self.queue.append(player)
+        await ctx.trigger_typing()
 
-        async with ctx.typing():
-            ctx.voice_client.play(
-                self.queue[0],
-                after=lambda e: print("Player error: %s" % e) if e else None,
-            )
+        if self.music_player is None:
+            self.music_player = MusicPlayer(ctx)
 
-        await ctx.send("Now playing: {}".format(player.title))
-
-    @commands.command()
-    async def spotify(self, ctx):
-        print(SpotifyClient().get_playlist('31OSfeHFQAkz8cMej2chGL'))
-
-    @commands.command()
-    async def stop(self, ctx):
-        """Stops and disconnects the bot from voice"""
-        await ctx.voice_client.disconnect()
+        player = await YTDLSource.from_url(url, loop=ctx.bot.loop)
+        await self.music_player.queue.put(player)
 
     @play.before_invoke
     async def ensure_voice(self, ctx):
@@ -109,8 +131,33 @@ class Music(commands.Cog):
             else:
                 await ctx.send("You are not connected to a voice channel.")
                 raise commands.CommandError("Author not connected to a voice channel.")
-        elif ctx.voice_client.is_playing():
-            ctx.voice_client.stop()
+
+    @commands.command()
+    async def stop(self, ctx):
+        """Stops and disconnects the bot from voice"""
+        await ctx.voice_client.disconnect()
+
+    @commands.command(name="queue", aliases=["q", "playlist"])
+    async def queue_info(self, ctx):
+        """Retrieve a basic queue of upcoming songs."""
+        vc = ctx.voice_client
+
+        if not vc or not vc.is_connected():
+            return await ctx.send(
+                "I am not currently connected to voice!", delete_after=20
+            )
+
+        player = self.music_player
+        if player.queue.empty():
+            return await ctx.send("There are currently no more queued songs.")
+
+        # Grab up to 5 entries from the queue...
+        upcoming = list(itertools.islice(player.queue._queue, 0, 5))
+
+        fmt = "\n".join(f"**`{_.title}`**" for _ in upcoming)
+        embed = discord.Embed(title=f"Upcoming - Next {len(upcoming)}", description=fmt)
+
+        await ctx.send(embed=embed)
 
 
 bot = commands.Bot(
