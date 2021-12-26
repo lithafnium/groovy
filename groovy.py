@@ -1,4 +1,5 @@
 from config import TOKEN
+from spotify-client import SpotifyClient
 
 import asyncio
 
@@ -92,6 +93,10 @@ class Music(commands.Cog):
         await ctx.send("Now playing: {}".format(player.title))
 
     @commands.command()
+    async def spotify(self, ctx):
+        print(SpotifyClient().get_playlist('31OSfeHFQAkz8cMej2chGL'))
+
+    @commands.command()
     async def stop(self, ctx):
         """Stops and disconnects the bot from voice"""
         await ctx.voice_client.disconnect()
@@ -109,7 +114,7 @@ class Music(commands.Cog):
 
 
 bot = commands.Bot(
-    command_prefix=commands.when_mentioned_or("!"),
+    command_prefix=commands.when_mentioned_or("%"),
     description="Relatively simple music bot example",
 )
 
