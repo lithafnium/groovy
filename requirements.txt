@@ -1,5 +1,4 @@
 aiohttp==3.7.4.post0
-astroid @ file:///opt/concourse/worker/volumes/live/7847b66d-b813-4ddd-4992-72d25ce34a7d/volume/astroid_1628063159978/work
 async-timeout==3.0.1
 attrs==21.2.0
 certifi==2020.6.20
@@ -8,14 +7,8 @@ discord==1.7.3
 discord.py==1.7.3
 idna==3.3
 idna-ssl==1.1.0
-isort @ file:///tmp/build/80754af9/isort_1628603791788/work
-lazy-object-proxy @ file:///opt/concourse/worker/volumes/live/34f7b6f0-7e5d-4b28-7c26-d6747b7d340c/volume/lazy-object-proxy_1616529069287/work
 mccabe==0.6.1
 multidict==5.2.0
-pylint @ file:///opt/concourse/worker/volumes/live/5aebc609-d494-4328-61fc-c8762ab8656c/volume/pylint_1627536799145/work
-toml @ file:///tmp/build/80754af9/toml_1616166611790/work
-typed-ast @ file:///opt/concourse/worker/volumes/live/e71d1be0-9775-4fa4-4c69-bb5423fcc84f/volume/typed-ast_1624953679099/work
-typing-extensions @ file:///tmp/build/80754af9/typing_extensions_1631814937681/work
 wrapt==1.12.1
 yarl==1.7.2
 youtube-dl==2021.12.17
