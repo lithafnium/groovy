@@ -55,6 +55,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
             data = data["entries"][0]
 
         filename = data["url"]
+        print("filename:", filename)
         # pp.pprint(data)
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
 
