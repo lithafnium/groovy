@@ -1,5 +1,5 @@
 import asyncio
-
+import logging
 import discord
 import youtube_dl
 import pprint
@@ -29,7 +29,18 @@ ytdl_format_options = {
 
 ffmpeg_options = {"options": "-vn"}
 
+logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)-15s %(levelname)-8s %(message)s",
+        handlers=[
+            logging.StreamHandler(),
+        ],
+    )
+
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
+
+def print_log(message: str):
+    logging.info("[groovybot]: " + str(message))
 
 
 class YTDLSource(discord.PCMVolumeTransformer):
@@ -55,7 +66,6 @@ class YTDLSource(discord.PCMVolumeTransformer):
             data = data["entries"][0]
 
         filename = data["url"]
-        print("filename:", filename)
         # pp.pprint(data)
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
 
@@ -88,13 +98,14 @@ class MusicPlayer:
                 player,
                 after=self.toggle_next,
             )
-
+            print_log(f"Playing {player.title}")
             self.np = await self._channel.send(
                 "Now playing: **{}**".format(player.title)
             )
             await self.next.wait()
 
     def toggle_next(self, e):
+        print_log(f"Error: {e}")
         self.ctx.bot.loop.call_soon_threadsafe(self.next.set)
 
 
@@ -123,6 +134,7 @@ class Music(commands.Cog):
         player = await YTDLSource.from_url(url, loop=ctx.bot.loop)
 
         if ctx.voice_client.is_playing():
+            print_log(f"Added {player.title} to queue")
             await ctx.send("Added **{}** to the queue".format(player.title))
         await self.music_player.queue.put(player)
 
@@ -130,6 +142,7 @@ class Music(commands.Cog):
     async def ensure_voice(self, ctx):
         if ctx.voice_client is None:
             if ctx.author.voice:
+                print_log(f"Joining channel {ctx.author.voice.channel}")
                 await ctx.author.voice.channel.connect()
             else:
                 await ctx.send("You are not connected to a voice channel.")
