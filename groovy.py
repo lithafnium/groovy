@@ -45,7 +45,6 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     @classmethod
     async def from_url(cls, url, *, loop):
-        print("loop:", loop)
         to_run = partial(ytdl.extract_info, url=url, download=False)
         data = await loop.run_in_executor(None, to_run)
 
@@ -86,7 +85,9 @@ class MusicPlayer:
                 after=self.toggle_next,
             )
 
-            self.np = await self._channel.send("Now playing: {}".format(player.title))
+            self.np = await self._channel.send(
+                "Now playing: **{}**".format(player.title)
+            )
             await self.next.wait()
 
     def toggle_next(self, e):
@@ -116,6 +117,9 @@ class Music(commands.Cog):
             self.music_player = MusicPlayer(ctx)
 
         player = await YTDLSource.from_url(url, loop=ctx.bot.loop)
+
+        if ctx.voice_client.is_playing():
+            await ctx.send("Added **{}** to the queue".format(player.title))
         await self.music_player.queue.put(player)
 
     @play.before_invoke
@@ -131,6 +135,40 @@ class Music(commands.Cog):
     async def stop(self, ctx):
         """Stops and disconnects the bot from voice"""
         await ctx.voice_client.disconnect()
+
+    @commands.command()
+    async def pause(self, ctx):
+        if not ctx.voice_client or not ctx.voice_client.is_playing():
+            return await ctx.send(
+                "I am not currently playing anything!", delete_after=20
+            )
+        elif ctx.voice_client.is_paused():
+            return
+
+        ctx.voice_client.pause()
+
+        await ctx.send("Paused current song")
+
+    @commands.command()
+    async def resume(self, ctx):
+        if not ctx.voice_client or not ctx.voice_client.is_connected():
+            return await ctx.send(
+                "I am not currently playing anything!", delete_after=20
+            )
+        elif not ctx.voice_client.is_paused():
+            return
+
+        ctx.voice_client.resume()
+        await ctx.send("Resumed the song!")
+
+    @commands.command()
+    async def skip(self, ctx):
+        if ctx.voice_client.is_playing():
+            ctx.voice_client.stop()
+        else:
+            return await ctx.send(
+                "I am not currently playing anything!", delete_after=20
+            )
 
     @commands.command(name="queue", aliases=["q", "playlist"])
     async def queue_info(self, ctx):
@@ -149,7 +187,7 @@ class Music(commands.Cog):
         # Grab up to 5 entries from the queue...
         upcoming = list(itertools.islice(player.queue._queue, 0, 5))
 
-        fmt = "\n".join(f"**`{_.title}`**" for _ in upcoming)
+        fmt = "\n".join(f"**`{i+1}. {_.title}`**" for i, _ in enumerate(upcoming))
         embed = discord.Embed(title=f"Upcoming - Next {len(upcoming)}", description=fmt)
 
         await ctx.send(embed=embed)
