@@ -59,6 +59,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     @classmethod
     async def from_url(cls, url, *, loop):
+        ytdl.cache.remove()
         to_run = partial(ytdl.extract_info, url=url, download=False)
         data = await loop.run_in_executor(None, to_run)
 
