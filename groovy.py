@@ -33,6 +33,7 @@ logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)-15s %(levelname)-8s %(message)s",
         handlers=[
+            logging.FileHandler("groovy_bot.log"),
             logging.StreamHandler(),
         ],
     )
