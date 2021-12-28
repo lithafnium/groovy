@@ -1,6 +1,5 @@
 from config import TOKEN
-from spotify_client import SpotifyClient
-from MusicQueue import MusicQueue
+from SpotifyClient import SpotifyClient
 
 import asyncio
 import logging
@@ -83,9 +82,9 @@ class MusicPlayer:
         self._channel = ctx.channel
         self._cog = ctx.cog
 
-        self.queue = MusicQueue()
+        self.queue_count = asyncio.Queue()
         self.next = asyncio.Event()
-        self.list = []
+        self.queue = []
 
         self.np = None  # Now playing message
         self.volume = 0.5
@@ -98,10 +97,8 @@ class MusicPlayer:
         while not self.bot.is_closed():
             self.next.clear()
 
-            print('LLLLLLLLLLLLLLLLLLLLLLLLLL')
-            await self.queue.get()
-            player = self.list.pop(0)
-            print(player)
+            await self.queue_count.get()
+            player = self.queue.pop(0)
             self.current = player
 
             self._guild.voice_client.play(
@@ -154,8 +151,8 @@ class Music(commands.Cog):
         if ctx.voice_client.is_playing():
             print_log(f"Added {player.title} to queue")
             await ctx.send("Added **{}** to the queue".format(player.title))
-        self.music_player.list.append(player)
-        await self.music_player.queue.put(player)
+        self.music_player.queue.append(player)
+        await self.music_player.queue_count.put(0)
 
     @play.before_invoke
     async def ensure_voice(self, ctx):
@@ -226,11 +223,11 @@ class Music(commands.Cog):
             await ctx.send(embed=current)
 
         player = self.music_player
-        if player.queue.empty():
+        if len(player.queue) == 0:
             return await ctx.send("There are currently no more queued songs.")
 
         # Grab up to 5 entries from the queue...
-        upcoming = list(itertools.islice(player.queue._queue, 0, 5))
+        upcoming = player.queue[:10]
 
         fmt = "\n".join(f"**`{i+1}. {_.title}`**" for i, _ in enumerate(upcoming))
 

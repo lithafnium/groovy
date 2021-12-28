@@ -1,5 +1,5 @@
 from config import TOKEN
-from spotify_client import SpotifyClient
+from SpotifyClient import SpotifyClient
 
 import asyncio
 import logging
