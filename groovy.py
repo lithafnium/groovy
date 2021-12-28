@@ -1,6 +1,4 @@
 from config import TOKEN
-from SpotifyClient import SpotifyClient
-
 import asyncio
 import logging
 import discord
