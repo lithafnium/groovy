@@ -1,6 +1,4 @@
-<<<<<<< HEAD
 config.py
-=======
 .vscode/
 venv/
 
@@ -156,4 +154,3 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 © 2021 
->>>>>>> 973cc5be5dd73caea523575d0a9d861483be35ce
