@@ -1,3 +1,6 @@
+from config import TOKEN
+from SpotifyClient import SpotifyClient
+
 import asyncio
 import logging
 import discord
@@ -227,7 +230,7 @@ class Music(commands.Cog):
 
 
 bot = commands.Bot(
-    command_prefix=commands.when_mentioned_or("!"),
+    command_prefix=commands.when_mentioned_or("%"),
     description="Relatively simple music bot example",
 )
 
@@ -239,4 +242,5 @@ async def on_ready():
 
 
 bot.add_cog(Music(bot))
-bot.run("OTI0MzU3ODcxMTc1NjI2Nzgy.YcdZWg.zdrLkbEK5TCxNRqMpFJs4RxWB0o")
+#TOKEN = os.getenv('GROOVY_TOKEN')
+bot.run(TOKEN)
