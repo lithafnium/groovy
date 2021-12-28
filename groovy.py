@@ -2,11 +2,10 @@ from config import TOKEN
 from spotify_client import SpotifyClient
 
 import asyncio
-
-import os
-
+import logging
 import discord
 import youtube_dl
+import pprint
 import itertools
 from functools import partial
 
@@ -15,6 +14,7 @@ from discord.ext import commands
 # Suppress noise about console usage from errors
 youtube_dl.utils.bug_reports_message = lambda: ""
 
+pp = pprint.PrettyPrinter(indent=4)
 
 ytdl_format_options = {
     "format": "bestaudio/best",
@@ -32,7 +32,19 @@ ytdl_format_options = {
 
 ffmpeg_options = {"options": "-vn"}
 
+logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)-15s %(levelname)-8s %(message)s",
+        handlers=[
+            logging.FileHandler("groovy_bot.log"),
+            logging.StreamHandler(),
+        ],
+    )
+
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
+
+def print_log(message: str):
+    logging.info("[groovybot]: " + str(message))
 
 
 class YTDLSource(discord.PCMVolumeTransformer):
@@ -50,6 +62,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     @classmethod
     async def from_url(cls, url, *, loop):
+        ytdl.cache.remove()
         to_run = partial(ytdl.extract_info, url=url, download=False)
         data = await loop.run_in_executor(None, to_run)
 
@@ -58,6 +71,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
             data = data["entries"][0]
 
         filename = data["url"]
+        # pp.pprint(data)
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
 
 
@@ -89,13 +103,14 @@ class MusicPlayer:
                 player,
                 after=self.toggle_next,
             )
-
+            print_log(f"Playing {player.title}")
             self.np = await self._channel.send(
                 "Now playing: **{}**".format(player.title)
             )
             await self.next.wait()
 
     def toggle_next(self, e):
+        print_log(f"Error: {e}")
         self.ctx.bot.loop.call_soon_threadsafe(self.next.set)
 
 
@@ -124,6 +139,7 @@ class Music(commands.Cog):
         player = await YTDLSource.from_url(url, loop=ctx.bot.loop)
 
         if ctx.voice_client.is_playing():
+            print_log(f"Added {player.title} to queue")
             await ctx.send("Added **{}** to the queue".format(player.title))
         await self.music_player.queue.put(player)
 
@@ -131,6 +147,7 @@ class Music(commands.Cog):
     async def ensure_voice(self, ctx):
         if ctx.voice_client is None:
             if ctx.author.voice:
+                print_log(f"Joining channel {ctx.author.voice.channel}")
                 await ctx.author.voice.channel.connect()
             else:
                 await ctx.send("You are not connected to a voice channel.")
@@ -185,6 +202,15 @@ class Music(commands.Cog):
                 "I am not currently connected to voice!", delete_after=20
             )
 
+        if self.music_player is not None:
+            current = discord.Embed(
+                title="Currently Playing:",
+                description=f"**{self.music_player.current.title}**",
+                color=discord.Color.blue(),
+            )
+            current.set_thumbnail(url=self.music_player.current.data["thumbnail"])
+            await ctx.send(embed=current)
+
         player = self.music_player
         if player.queue.empty():
             return await ctx.send("There are currently no more queued songs.")
@@ -193,7 +219,12 @@ class Music(commands.Cog):
         upcoming = list(itertools.islice(player.queue._queue, 0, 5))
 
         fmt = "\n".join(f"**`{i+1}. {_.title}`**" for i, _ in enumerate(upcoming))
-        embed = discord.Embed(title=f"Upcoming - Next {len(upcoming)}", description=fmt)
+
+        embed = discord.Embed(
+            title=f"Upcoming:",
+            description=fmt,
+            color=discord.Color.blue(),
+        )
 
         await ctx.send(embed=embed)
 
