@@ -165,13 +165,37 @@ class Music(commands.Cog):
     @commands.command(anme='play', aliases=['p'])
     async def play(self, ctx, *, url):
         await ctx.trigger_typing()
-
         if self.music_player is None:
             self.music_player = MusicPlayer(ctx)
 
-        player = await YTDLSource.from_url(url, loop=ctx.bot.loop)
+        if 'https://open.spotify.com/playlist/' in url:
+            url = url.removesuffix('https://open.spotify.com/playlist/')
+            url = url.split('?')
+            sp_id = url[0]
 
-        if ctx.voice_client.is_playing():
+            sp = SpotifyClient()
+            playlist = sp.get_playlist(sp_id)
+            
+            for track in playlist:
+                await self.add_track(ctx, track + 'audio', False)
+
+        if 'https://open.spotify.com/track/' in url:
+            url = url.removesuffix('https://open.spotify.com/track/')
+            url = url.split('?')
+            sp_id = url[0]
+
+            sp = SpotifyClient()
+            track = sp.get_track(sp_id)
+
+            await self.add_track(ctx, track + 'audio', True)
+
+        else:
+            await self.add_track(ctx, url, True)
+
+    async def add_track(self, ctx, name, msg):
+        player = await YTDLSource.from_url(name, loop=ctx.bot.loop)
+
+        if ctx.voice_client.is_playing() and msg:
             print_log(f"Added {player.title} to queue")
             await ctx.send("Added **{}** to the queue".format(player.title))
         self.music_player.queue.append(player)
@@ -295,7 +319,7 @@ class Music(commands.Cog):
 
     @commands.command(aliases=['c'])
     async def clear(self, ctx):
-        self.music.player.queue_count = asyncio.Queue()
+        self.music_player.queue_count = asyncio.Queue()
         self.music_player.queue = []
 
     @commands.command(aliases=['d'])

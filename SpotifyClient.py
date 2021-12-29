@@ -23,3 +23,10 @@ class SpotifyClient():
             clean_list.append(entry)
 
         return clean_list
+
+    def get_track(self, track_id):
+        track = self.sp.track(track_id)
+        song_name = track['name']
+        for artist in track['artists']:
+            song_name = song_name + ' ' + artist['name']
+        return song_name
