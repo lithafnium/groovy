@@ -82,8 +82,9 @@ class MusicPlayer:
         self._channel = ctx.channel
         self._cog = ctx.cog
 
-        self.queue = asyncio.Queue()
+        self.queue_count = asyncio.Queue()
         self.next = asyncio.Event()
+        self.queue = []
 
         self.np = None  # Now playing message
         self.volume = 0.5
@@ -96,13 +97,23 @@ class MusicPlayer:
         while not self.bot.is_closed():
             self.next.clear()
 
-            player = await self.queue.get()
+            await self.queue_count.get()
+            player = self.queue.pop(0)
             self.current = player
 
             self._guild.voice_client.play(
                 player,
                 after=self.toggle_next,
             )
+
+            current = discord.Embed(
+                title="Currently Playing:",
+                description=f"**{self.current.title}**",
+                color=discord.Color.blue(),
+            )
+            current.set_thumbnail(url=self.current.data["thumbnail"])
+            await self.ctx.send(embed=current)
+
             print_log(f"Playing {player.title}")
             self.np = await self._channel.send(
                 "Now playing: **{}**".format(player.title)
@@ -112,7 +123,6 @@ class MusicPlayer:
     def toggle_next(self, e):
         print_log(f"Error: {e}")
         self.ctx.bot.loop.call_soon_threadsafe(self.next.set)
-
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -141,7 +151,8 @@ class Music(commands.Cog):
         if ctx.voice_client.is_playing():
             print_log(f"Added {player.title} to queue")
             await ctx.send("Added **{}** to the queue".format(player.title))
-        await self.music_player.queue.put(player)
+        self.music_player.queue.append(player)
+        await self.music_player.queue_count.put(0)
 
     @play.before_invoke
     async def ensure_voice(self, ctx):
@@ -212,11 +223,11 @@ class Music(commands.Cog):
             await ctx.send(embed=current)
 
         player = self.music_player
-        if player.queue.empty():
+        if len(player.queue) == 0:
             return await ctx.send("There are currently no more queued songs.")
 
         # Grab up to 5 entries from the queue...
-        upcoming = list(itertools.islice(player.queue._queue, 0, 5))
+        upcoming = player.queue[:10]
 
         fmt = "\n".join(f"**`{i+1}. {_.title}`**" for i, _ in enumerate(upcoming))
 
@@ -228,6 +239,9 @@ class Music(commands.Cog):
 
         await ctx.send(embed=embed)
 
+    @commands.command()
+    async def move(self, ctx, *, url):
+        return
 
 bot = commands.Bot(
     command_prefix=commands.when_mentioned_or("%"),

@@ -1,3 +1,4 @@
+from ctypes.wintypes import tagRECT
 from config import TOKEN
 from SpotifyClient import SpotifyClient
 
@@ -91,6 +92,9 @@ class MusicPlayer:
         self.current = None
         self.ctx = ctx
         self.ctx.bot.loop.create_task(self.player_loop())
+        self.ctx.bot.loop.create_task(self.inactivity_loop())
+
+        self.timer = 0
 
     async def player_loop(self):
         await self.bot.wait_until_ready()
@@ -119,6 +123,25 @@ class MusicPlayer:
                 "Now playing: **{}**".format(player.title)
             )
             await self.next.wait()
+            
+    async def inactivity_loop(self):
+        while True:
+            try:
+                await asyncio.sleep(1)
+                self.timer += 1
+                
+                #pp.pprint(self.timer)
+
+                if self.ctx.voice_client.is_playing() or self.ctx.voice_client.is_paused():
+                    self.timer = 0
+                
+                if self.timer == 10:
+                    await self.ctx.voice_client.disconnect()
+
+            except Exception as e:
+                if self.ctx.voice_client is None:
+                    continue
+                print(str(e))
 
     def toggle_next(self, e):
         print_log(f"Error: {e}")
@@ -139,7 +162,7 @@ class Music(commands.Cog):
         await channel.connect()
         print(self.bot.voice_clients)
 
-    @commands.command()
+    @commands.command(anme='play', aliases=['p'])
     async def play(self, ctx, *, url):
         await ctx.trigger_typing()
 
@@ -163,6 +186,10 @@ class Music(commands.Cog):
             else:
                 await ctx.send("You are not connected to a voice channel.")
                 raise commands.CommandError("Author not connected to a voice channel.")
+
+        # set timer here to avoid disconnecting with time overlap
+        if self.music_player is not None:
+            self.music_player.timer = 0
 
     @commands.command()
     async def stop(self, ctx):
@@ -239,6 +266,50 @@ class Music(commands.Cog):
 
         await ctx.send(embed=embed)
 
+    @commands.command(aliases=['m'])
+    async def move(self, ctx, input):
+        try:
+            # indices should be 1 start
+            indices = input.slice(" ")
+            indices = list(map(int, indices))
+
+            if len(indices) == 2:
+                start = indices[0]
+                end = indices[1]
+                player = self.music_player.queue.pop(start - 1)
+                self.music_player.queue.insert(end - 1, player)
+            else:
+                ctx.channel.send(
+                    'Invalid input'
+                )
+
+        except Exception as e:
+            ctx.channel.send(
+                'Invalid input'
+            )
+            print(str(e))
+
+    @commands.command(aliases=['b'])
+    async def bump(self, ctx, target):
+        return
+
+    @commands.command(aliases=['c'])
+    async def clear(self, ctx):
+        self.music.player.queue_count = asyncio.Queue()
+        self.music_player.queue = []
+
+    @commands.command(aliases=['d'])
+    async def delete(self, ctx, target):
+        try:
+            # index is 1 based
+            index = int(target)
+            await self.music_player.queue_count.get()
+            self.music_player.queue.pop(index - 1)
+        except Exception as e:
+            ctx.channel.send(
+                'Invalid input'
+            )
+            print(str(e))
 
 bot = commands.Bot(
     command_prefix=commands.when_mentioned_or("%"),
