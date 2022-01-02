@@ -1,4 +1,5 @@
-from config import TOKEN
+from ctypes.wintypes import tagRECT
+from config import GROOVY_TOKEN
 from SpotifyClient import SpotifyClient
 
 import asyncio
@@ -91,6 +92,9 @@ class MusicPlayer:
         self.current = None
         self.ctx = ctx
         self.ctx.bot.loop.create_task(self.player_loop())
+        self.ctx.bot.loop.create_task(self.inactivity_loop())
+
+        self.timer = 0
 
     async def player_loop(self):
         await self.bot.wait_until_ready()
@@ -119,6 +123,23 @@ class MusicPlayer:
                 "Now playing: **{}**".format(player.title)
             )
             await self.next.wait()
+            
+    async def inactivity_loop(self):
+        while True:
+            try:
+                await asyncio.sleep(1)
+                self.timer += 1             
+                #pp.pprint(self.timer)
+                if self.ctx.voice_client.is_playing() or self.ctx.voice_client.is_paused():
+                    self.timer = 0
+                
+                if self.timer == 600:
+                    await self.ctx.voice_client.disconnect()
+
+            except Exception as e:
+                if self.ctx.voice_client is None:
+                    continue
+                print(str(e))
 
     def toggle_next(self, e):
         print_log(f"Error: {e}")
@@ -133,22 +154,46 @@ class Music(commands.Cog):
     async def join(self, ctx, *, channel: discord.VoiceChannel):
         """Joins a voice channel"""
         if ctx.voice_client is not None:
-            ctx.voice_client.source.volume = 50
+            ctx.voice_client.source.volume = 35
             return await ctx.voice_client.move_to(channel)
 
         await channel.connect()
         print(self.bot.voice_clients)
 
-    @commands.command()
+    @commands.command(anme='play', aliases=['p'])
     async def play(self, ctx, *, url):
         await ctx.trigger_typing()
-
         if self.music_player is None:
             self.music_player = MusicPlayer(ctx)
 
-        player = await YTDLSource.from_url(url, loop=ctx.bot.loop)
+        if 'https://open.spotify.com/playlist/' in url:
+            url = url.removesuffix('https://open.spotify.com/playlist/')
+            url = url.split('?')
+            sp_id = url[0]
 
-        if ctx.voice_client.is_playing():
+            sp = SpotifyClient()
+            playlist = sp.get_playlist(sp_id)
+            
+            for track in playlist:
+                await self.add_track(ctx, track + 'audio', False)
+
+        if 'https://open.spotify.com/track/' in url:
+            url = url.removesuffix('https://open.spotify.com/track/')
+            url = url.split('?')
+            sp_id = url[0]
+
+            sp = SpotifyClient()
+            track = sp.get_track(sp_id)
+
+            await self.add_track(ctx, track + 'audio', True)
+
+        else:
+            await self.add_track(ctx, url, True)
+
+    async def add_track(self, ctx, name, msg):
+        player = await YTDLSource.from_url(name, loop=ctx.bot.loop)
+
+        if ctx.voice_client.is_playing() and msg:
             print_log(f"Added {player.title} to queue")
             await ctx.send("Added **{}** to the queue".format(player.title))
         self.music_player.queue.append(player)
@@ -163,6 +208,10 @@ class Music(commands.Cog):
             else:
                 await ctx.send("You are not connected to a voice channel.")
                 raise commands.CommandError("Author not connected to a voice channel.")
+
+        # set timer here to avoid disconnecting with time overlap
+        if self.music_player is not None:
+            self.music_player.timer = 0
 
     @commands.command()
     async def stop(self, ctx):
@@ -239,6 +288,50 @@ class Music(commands.Cog):
 
         await ctx.send(embed=embed)
 
+    @commands.command(aliases=['m'])
+    async def move(self, ctx, input):
+        try:
+            # indices should be 1 start
+            indices = input.slice(" ")
+            indices = list(map(int, indices))
+
+            if len(indices) == 2:
+                start = indices[0]
+                end = indices[1]
+                player = self.music_player.queue.pop(start - 1)
+                self.music_player.queue.insert(end - 1, player)
+            else:
+                ctx.channel.send(
+                    'Invalid input'
+                )
+
+        except Exception as e:
+            ctx.channel.send(
+                'Invalid input'
+            )
+            print(str(e))
+
+    @commands.command(aliases=['b'])
+    async def bump(self, ctx, target):
+        return
+
+    @commands.command(aliases=['c'])
+    async def clear(self, ctx):
+        self.music_player.queue_count = asyncio.Queue()
+        self.music_player.queue = []
+
+    @commands.command(aliases=['d'])
+    async def delete(self, ctx, target):
+        try:
+            # index is 1 based
+            index = int(target)
+            await self.music_player.queue_count.get()
+            self.music_player.queue.pop(index - 1)
+        except Exception as e:
+            ctx.channel.send(
+                'Invalid input'
+            )
+            print(str(e))
 
 bot = commands.Bot(
     command_prefix=commands.when_mentioned_or("%"),
@@ -254,4 +347,4 @@ async def on_ready():
 
 bot.add_cog(Music(bot))
 #TOKEN = os.getenv('GROOVY_TOKEN')
-bot.run(TOKEN)
+bot.run(GROOVY_TOKEN)
