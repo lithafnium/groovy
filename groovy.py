@@ -98,6 +98,10 @@ class MusicPlayer:
         self._channel = ctx.channel
         self._cog = ctx.cog
 
+    def clear_queue(self):
+        self.queue_count = asyncio.Queue()
+        self.queue = []
+
     async def player_loop(self):
         await self.bot.wait_until_ready()
         while not self.bot.is_closed():
@@ -106,6 +110,7 @@ class MusicPlayer:
             await self.queue_count.get()
             player = self.queue.pop(0)
             self.current = player
+
             print_log(f"Player: {player}")
             self._guild.voice_client.play(
                 player,
@@ -141,7 +146,10 @@ class Music(commands.Cog):
         """Joins a voice channel"""
         if ctx.voice_client is not None:
             ctx.voice_client.source.volume = 50
-            return await ctx.voice_client.move_to(channel)
+            ctx.voice_client.pause()
+            await ctx.voice_client.move_to(channel)
+            ctx.voice_client.resume()
+            return
 
         await channel.connect()
         print(self.bot.voice_clients)
@@ -174,11 +182,12 @@ class Music(commands.Cog):
                 raise commands.CommandError("Author not connected to a voice channel.")
         else:
             if ctx.author.voice and ctx.author.voice.channel != ctx.voice_client.channel:
+                self.music_player.clear_queue()
                 await ctx.voice_client.disconnect()
                 print_log(f"Joining channel {ctx.author.voice.channel}")
                 await ctx.author.voice.channel.connect()
                 print_log(f"Joined channel {ctx.author.voice.channel}")
-                self.music_player.set_context(ctx) 
+                self.music_player.set_context(ctx)
 
     @commands.command()
     async def stop(self, ctx):
@@ -195,10 +204,9 @@ class Music(commands.Cog):
             return
 
         ctx.voice_client.pause()
-
         await ctx.send("Paused current song")
 
-    @commands.command()
+    @commands.command(name="resume", aliases=["r"])
     async def resume(self, ctx):
         if not ctx.voice_client or not ctx.voice_client.is_connected():
             return await ctx.send(
