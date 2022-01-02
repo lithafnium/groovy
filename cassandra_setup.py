@@ -4,7 +4,22 @@ ASTRA_DB_KEYSPACE = 'discordplaylists'
 from astrapy.client import create_astra_client
 
 '''
-Initial creation of schema file for Cassandra DB on Datastax Astra
+Initial creation of schema file for Cassandra DB on Datastax Astra.
+
+Table: playlist
+    Columns: 
+    guild_id        text
+    playlist_tid    timeuuid
+
+    PK: guild_id
+
+Table: playlist_tracks
+    Columns: 
+    playlist_tid    timeuuid
+    added           timestamp
+    song_name       text
+
+    PK: playlist_tid
 '''
 
 astra_client = create_astra_client(astra_database_id=ASTRA_DB_ID,
