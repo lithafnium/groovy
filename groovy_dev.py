@@ -1,5 +1,5 @@
 from ctypes.wintypes import tagRECT
-from config import TOKEN
+from config import GROOVY_TOKEN
 from SpotifyClient import SpotifyClient
 
 import asyncio
@@ -128,14 +128,12 @@ class MusicPlayer:
         while True:
             try:
                 await asyncio.sleep(1)
-                self.timer += 1
-                
+                self.timer += 1             
                 #pp.pprint(self.timer)
-
                 if self.ctx.voice_client.is_playing() or self.ctx.voice_client.is_paused():
                     self.timer = 0
                 
-                if self.timer == 10:
+                if self.timer == 600:
                     await self.ctx.voice_client.disconnect()
 
             except Exception as e:
@@ -156,7 +154,7 @@ class Music(commands.Cog):
     async def join(self, ctx, *, channel: discord.VoiceChannel):
         """Joins a voice channel"""
         if ctx.voice_client is not None:
-            ctx.voice_client.source.volume = 50
+            ctx.voice_client.source.volume = 35
             return await ctx.voice_client.move_to(channel)
 
         await channel.connect()
@@ -349,4 +347,4 @@ async def on_ready():
 
 bot.add_cog(Music(bot))
 #TOKEN = os.getenv('GROOVY_TOKEN')
-bot.run(TOKEN)
+bot.run(GROOVY_TOKEN)

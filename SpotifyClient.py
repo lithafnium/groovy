@@ -6,8 +6,8 @@ from config import SPOTIFY_SECRET
 
 class SpotifyClient():
     def __init__(self):
-        self.auth_manager = SpotifyClientCredentials(SPOTIFY_ID, SPOTIFY_SECRET)
-        self.sp = spotipy.Spotify(auth_manager=self.auth_manager)
+        auth_manager = SpotifyClientCredentials(SPOTIFY_ID, SPOTIFY_SECRET)
+        self.sp = spotipy.Spotify(auth_manager=auth_manager)
 
 
     def get_playlist(self, playlist_id):
