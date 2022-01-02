@@ -76,8 +76,8 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
 
 class MusicPlayer:
-    def __init__(self, ctx):
-        self.bot = ctx.bot
+    def __init__(self, ctx, bot):
+        self.bot = bot
         self._guild = ctx.guild
         self._channel = ctx.channel
         self._cog = ctx.cog
@@ -90,7 +90,13 @@ class MusicPlayer:
         self.volume = 0.5
         self.current = None
         self.ctx = ctx
-        self.ctx.bot.loop.create_task(self.player_loop())
+        self.bot.loop.create_task(self.player_loop())
+    
+    def set_context(self, ctx):
+        self.ctx = ctx
+        self._guild = ctx.guild
+        self._channel = ctx.channel
+        self._cog = ctx.cog
 
     async def player_loop(self):
         await self.bot.wait_until_ready()
@@ -144,7 +150,9 @@ class Music(commands.Cog):
         await ctx.trigger_typing()
 
         if self.music_player is None:
-            self.music_player = MusicPlayer(ctx)
+            self.music_player = MusicPlayer(ctx, self.bot)
+        else:
+            self.music_player.set_context(ctx)
 
         player = await YTDLSource.from_url(url, loop=ctx.bot.loop)
 
