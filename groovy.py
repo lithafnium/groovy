@@ -106,14 +106,14 @@ class MusicPlayer:
             await self.queue_count.get()
             player = self.queue.pop(0)
             self.current = player
-
+            print_log(f"Player: {player}")
             self._guild.voice_client.play(
                 player,
                 after=self.toggle_next,
             )
 
             current = discord.Embed(
-                title="Currently Playing:",
+                title="Now Playing:",
                 description=f"**{self.current.title}**",
                 color=discord.Color.blue(),
             )
@@ -121,14 +121,15 @@ class MusicPlayer:
             await self.ctx.send(embed=current)
 
             print_log(f"Playing {player.title}")
-            self.np = await self._channel.send(
-                "Now playing: **{}**".format(player.title)
-            )
             await self.next.wait()
 
     def toggle_next(self, e):
         print_log(f"Error: {e}")
-        self.ctx.bot.loop.call_soon_threadsafe(self.next.set)
+        # FIXME: this is really stupid but it waits to be connected before going to the next
+        while(not self.ctx.voice_client.is_connected()):
+            pass
+        print_log("Calling next song from queue")
+        self.bot.loop.call_soon_threadsafe(self.next.set)
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -171,6 +172,13 @@ class Music(commands.Cog):
             else:
                 await ctx.send("You are not connected to a voice channel.")
                 raise commands.CommandError("Author not connected to a voice channel.")
+        else:
+            if ctx.author.voice and ctx.author.voice.channel != ctx.voice_client.channel:
+                await ctx.voice_client.disconnect()
+                print_log(f"Joining channel {ctx.author.voice.channel}")
+                await ctx.author.voice.channel.connect()
+                print_log(f"Joined channel {ctx.author.voice.channel}")
+                self.music_player.set_context(ctx) 
 
     @commands.command()
     async def stop(self, ctx):
