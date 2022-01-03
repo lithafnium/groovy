@@ -1,140 +1,14 @@
-from config import TOKEN
-import asyncio
-import logging
-import discord
-import youtube_dl
-import pprint
-import itertools
-from functools import partial
+from config import GROOVY_TOKEN
+from clients.SpotifyClient import SpotifyClient
 
+import asyncio
+import discord
 from discord.ext import commands
 
-# Suppress noise about console usage from errors
-youtube_dl.utils.bug_reports_message = lambda: ""
+from classes.Logger import print_log
+from classes.YTDLSource import YTDLSource
+from classes.MusicPlayer import MusicPlayer
 
-pp = pprint.PrettyPrinter(indent=4)
-
-ytdl_format_options = {
-    "format": "bestaudio/best",
-    "outtmpl": "%(extractor)s-%(id)s-%(title)s.%(ext)s",
-    "restrictfilenames": True,
-    "noplaylist": True,
-    "nocheckcertificate": True,
-    "ignoreerrors": False,
-    "logtostderr": False,
-    "quiet": True,
-    "no_warnings": True,
-    "default_search": "auto",
-    "source_address": "0.0.0.0",  # bind to ipv4 since ipv6 addresses cause issues sometimes
-}
-
-ffmpeg_options = {
-    "options": "-vn",
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
-}
-logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)-15s %(levelname)-8s %(message)s",
-        handlers=[
-            logging.FileHandler("groovy_bot.log"),
-            logging.StreamHandler(),
-        ],
-    )
-
-ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
-
-def print_log(message: str):
-    logging.info("[groovybot]: " + str(message))
-
-
-class YTDLSource(discord.PCMVolumeTransformer):
-    def __init__(self, source, *, data, volume=0.5):
-        super().__init__(source, volume)
-
-        self.data = data
-
-        self.title = data.get("title")
-        self.url = data.get("url")
-
-    @classmethod
-    async def from_search(cls, url):
-        pass
-
-    @classmethod
-    async def from_url(cls, url, *, loop):
-        ytdl.cache.remove()
-        to_run = partial(ytdl.extract_info, url=url, download=False)
-        data = await loop.run_in_executor(None, to_run)
-
-        if "entries" in data:
-            # take first item from a playlist
-            data = data["entries"][0]
-
-        filename = data["url"]
-        # pp.pprint(data)
-        return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
-
-
-class MusicPlayer:
-    def __init__(self, ctx, bot):
-        self.bot = bot
-        self._guild = ctx.guild
-        self._channel = ctx.channel
-        self._cog = ctx.cog
-
-        self.queue_count = asyncio.Queue()
-        self.next = asyncio.Event()
-        self.queue = []
-
-        self.np = None  # Now playing message
-        self.volume = 0.5
-        self.current = None
-        self.ctx = ctx
-        self.bot.loop.create_task(self.player_loop())
-    
-    def set_context(self, ctx):
-        self.ctx = ctx
-        self._guild = ctx.guild
-        self._channel = ctx.channel
-        self._cog = ctx.cog
-
-    def clear_queue(self):
-        self.queue_count = asyncio.Queue()
-        self.queue = []
-
-    async def player_loop(self):
-        await self.bot.wait_until_ready()
-        while not self.bot.is_closed():
-            self.next.clear()
-
-            await self.queue_count.get()
-            player = self.queue.pop(0)
-            self.current = player
-
-            print_log(f"Player: {player}")
-            self._guild.voice_client.play(
-                player,
-                after=self.toggle_next,
-            )
-
-            current = discord.Embed(
-                title="Now Playing:",
-                description=f"**{self.current.title}**",
-                color=discord.Color.blue(),
-            )
-            current.set_thumbnail(url=self.current.data["thumbnail"])
-            await self.ctx.send(embed=current)
-
-            print_log(f"Playing {player.title}")
-            await self.next.wait()
-
-    def toggle_next(self, e):
-        print_log(f"Error: {e}")
-        # FIXME: this is really stupid but it waits to be connected before going to the next
-        while(not self.ctx.voice_client.is_connected()):
-            pass
-        print_log("Calling next song from queue")
-        self.bot.loop.call_soon_threadsafe(self.next.set)
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -145,27 +19,48 @@ class Music(commands.Cog):
     async def join(self, ctx, *, channel: discord.VoiceChannel):
         """Joins a voice channel"""
         if ctx.voice_client is not None:
-            ctx.voice_client.source.volume = 50
-            ctx.voice_client.pause()
-            await ctx.voice_client.move_to(channel)
-            ctx.voice_client.resume()
-            return
+            ctx.voice_client.source.volume = 35
+            return await ctx.voice_client.move_to(channel)
 
         await channel.connect()
-        print(self.bot.voice_clients)
+        print_log(self.bot.voice_clients)
 
-    @commands.command()
+    @commands.command(anme='play', aliases=['p'])
     async def play(self, ctx, *, url):
         await ctx.trigger_typing()
-
         if self.music_player is None:
-            self.music_player = MusicPlayer(ctx, self.bot)
+            self.music_player = MusicPlayer(ctx, bot)
         else:
             self.music_player.set_context(ctx)
 
-        player = await YTDLSource.from_url(url, loop=ctx.bot.loop)
+        if 'https://open.spotify.com/playlist/' in url:
+            url = url.removesuffix('https://open.spotify.com/playlist/')
+            url = url.split('?')
+            sp_id = url[0]
 
-        if ctx.voice_client.is_playing():
+            sp = SpotifyClient()
+            playlist = sp.get_playlist(sp_id)
+            
+            for track in playlist:
+                await self.add_track(ctx, track + 'audio', False)
+
+        if 'https://open.spotify.com/track/' in url:
+            url = url.removesuffix('https://open.spotify.com/track/')
+            url = url.split('?')
+            sp_id = url[0]
+
+            sp = SpotifyClient()
+            track = sp.get_track(sp_id)
+
+            await self.add_track(ctx, track + 'audio', True)
+
+        else:
+            await self.add_track(ctx, url, True)
+
+    async def add_track(self, ctx, name, msg):
+        player = await YTDLSource.from_url(name, loop=ctx.bot.loop)
+
+        if ctx.voice_client.is_playing() and msg:
             print_log(f"Added {player.title} to queue")
             await ctx.send("Added **{}** to the queue".format(player.title))
         self.music_player.queue.append(player)
@@ -263,12 +158,52 @@ class Music(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.command()
-    async def move(self, ctx, *, url):
+    @commands.command(aliases=['m'])
+    async def move(self, ctx, input):
+        try:
+            # indices should be 1 start
+            indices = input.slice(" ")
+            indices = list(map(int, indices))
+
+            if len(indices) == 2:
+                start = indices[0]
+                end = indices[1]
+                player = self.music_player.queue.pop(start - 1)
+                self.music_player.queue.insert(end - 1, player)
+            else:
+                ctx.channel.send(
+                    'Invalid input'
+                )
+
+        except Exception as e:
+            ctx.channel.send(
+                'Invalid input'
+            )
+            print(str(e))
+
+    @commands.command(aliases=['b'])
+    async def bump(self, ctx, target):
         return
 
+    @commands.command(aliases=['c'])
+    async def clear(self, ctx):
+        self.music_player.clear_queue()
+
+    @commands.command(aliases=['d'])
+    async def delete(self, ctx, target):
+        try:
+            # index is 1 based
+            index = int(target)
+            await self.music_player.queue_count.get()
+            self.music_player.queue.pop(index - 1)
+        except Exception as e:
+            ctx.channel.send(
+                'Invalid input'
+            )
+            print(str(e))
+
 bot = commands.Bot(
-    command_prefix=commands.when_mentioned_or("!"),
+    command_prefix=commands.when_mentioned_or("%"),
     description="Relatively simple music bot example",
 )
 
@@ -281,4 +216,4 @@ async def on_ready():
 
 bot.add_cog(Music(bot))
 #TOKEN = os.getenv('GROOVY_TOKEN')
-bot.run(TOKEN)
+bot.run(GROOVY_TOKEN)

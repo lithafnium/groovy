@@ -23,7 +23,7 @@ class Music(commands.Cog):
             return await ctx.voice_client.move_to(channel)
 
         await channel.connect()
-        print(self.bot.voice_clients)
+        print_log(self.bot.voice_clients)
 
     @commands.command(name='play', aliases=['p'])
     async def play(self, ctx, *, url=None):
@@ -36,7 +36,7 @@ class Music(commands.Cog):
             return
 
         if self.music_player is None:
-            self.music_player = MusicPlayer(ctx)
+            self.music_player = MusicPlayer(ctx, bot)
         else:
             self.music_player.set_context(ctx)
 
@@ -97,17 +97,21 @@ class Music(commands.Cog):
             else:
                 await ctx.send("You are not connected to a voice channel.")
                 raise commands.CommandError("Author not connected to a voice channel.")
-
-        # set timer here to avoid disconnecting with time overlap
-        if self.music_player is not None:
-            self.music_player.timer = 0
+        else:
+            if ctx.author.voice and ctx.author.voice.channel != ctx.voice_client.channel:
+                self.music_player.clear_queue()
+                await ctx.voice_client.disconnect()
+                print_log(f"Joining channel {ctx.author.voice.channel}")
+                await ctx.author.voice.channel.connect()
+                print_log(f"Joined channel {ctx.author.voice.channel}")
+                self.music_player.set_context(ctx)
 
     @commands.command()
     async def stop(self, ctx):
         """Stops and disconnects the bot from voice"""
         await ctx.voice_client.disconnect()
 
-    @commands.command()
+    @commands.command(name="pause", aliases=["p"])
     async def pause(self, ctx):
         if not ctx.voice_client or not ctx.voice_client.is_playing():
             return await ctx.send(
@@ -117,7 +121,6 @@ class Music(commands.Cog):
             return
 
         ctx.voice_client.pause()
-
         await ctx.send("Paused current song")
 
     async def resume(self, ctx):
@@ -205,8 +208,7 @@ class Music(commands.Cog):
 
     @commands.command(aliases=['c'])
     async def clear(self, ctx):
-        self.music_player.queue_count = asyncio.Queue()
-        self.music_player.queue = []
+        self.music_player.clear_queue()
 
     @commands.command(aliases=['d'])
     async def delete(self, ctx, target):
