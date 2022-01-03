@@ -40,7 +40,7 @@ class MusicPlayer:
         await self.bot.wait_until_ready()
         while True:
             if self.start_player:
-                self.ctx.bot.loop.create_task(self.player_loop())
+                self.bot.loop.create_task(self.player_loop())
                 break
 
     async def player_loop(self):

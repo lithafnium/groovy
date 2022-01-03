@@ -123,7 +123,6 @@ class Music(commands.Cog):
         ctx.voice_client.pause()
         await ctx.send("Paused current song")
 
-    @commands.command(name="resume", aliases=["r"])
     async def resume(self, ctx):
         if not ctx.voice_client or not ctx.voice_client.is_connected():
             return await ctx.send(
