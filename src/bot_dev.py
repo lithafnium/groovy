@@ -25,13 +25,37 @@ class Music(commands.Cog):
         await channel.connect()
         print_log(self.bot.voice_clients)
 
-    @commands.command(anme='play', aliases=['p'])
-    async def play(self, ctx, *, url):
+    @commands.command(name='play', aliases=['p'])
+    async def play(self, ctx, *, url=None):
         await ctx.trigger_typing()
+
+        if url is None:
+            if self.music_player is not None:
+                await self.resume(ctx)
+                self.music_player.start_player = True
+            return
+
         if self.music_player is None:
             self.music_player = MusicPlayer(ctx, bot)
         else:
             self.music_player.set_context(ctx)
+
+        await self.add_queue(ctx, url)
+
+    async def add_queue(self, ctx, url):
+        tracks = self.get_spotify(url)
+        for track in tracks:
+            if len(tracks) > 1:
+                await self.add_track(ctx, track + 'audio', False)
+                return
+            else:
+                await self.add_track(ctx, track + 'audio', True)
+                return
+        
+        await self.add_track(ctx, url, True)
+
+    def get_spotify(self, url):
+        tracks = []
 
         if 'https://open.spotify.com/playlist/' in url:
             url = url.removesuffix('https://open.spotify.com/playlist/')
@@ -42,7 +66,7 @@ class Music(commands.Cog):
             playlist = sp.get_playlist(sp_id)
             
             for track in playlist:
-                await self.add_track(ctx, track + 'audio', False)
+                tracks.append(track)
 
         if 'https://open.spotify.com/track/' in url:
             url = url.removesuffix('https://open.spotify.com/track/')
@@ -51,11 +75,9 @@ class Music(commands.Cog):
 
             sp = SpotifyClient()
             track = sp.get_track(sp_id)
+            tracks.append(track)
 
-            await self.add_track(ctx, track + 'audio', True)
-
-        else:
-            await self.add_track(ctx, url, True)
+        return tracks
 
     async def add_track(self, ctx, name, msg):
         player = await YTDLSource.from_url(name, loop=ctx.bot.loop)
@@ -123,7 +145,7 @@ class Music(commands.Cog):
             )
 
     @commands.command(name="queue", aliases=["q", "playlist"])
-    async def queue_info(self, ctx):
+    async def queue_info(self, ctx, url=''):
         """Retrieve a basic queue of upcoming songs."""
         vc = ctx.voice_client
 

@@ -4,7 +4,7 @@ import discord
 from Logger import print_log
 
 class MusicPlayer:
-    def __init__(self, ctx, bot):
+    def __init__(self, ctx, bot, start_player=True):
         self.bot = bot
         self._guild = ctx.guild
         self._channel = ctx.channel
@@ -13,12 +13,15 @@ class MusicPlayer:
         self.queue_count = asyncio.Queue()
         self.next = asyncio.Event()
         self.queue = []
+        self.track_list = []
 
         self.np = None  # Now playing message
         self.volume = 0.5
         self.current = None
         self.ctx = ctx
-        self.bot.loop.create_task(self.player_loop())
+        
+        self.start_player = start_player
+        self.bot.loop.create_task(self.start_loop())
         self.bot.loop.create_task(self.inactivity_loop())
 
         self.timer = 0
@@ -32,6 +35,13 @@ class MusicPlayer:
     def clear_queue(self):
         self.queue_count = asyncio.Queue()
         self.queue = []
+
+    async def start_loop(self):
+        await self.bot.wait_until_ready()
+        while True:
+            if self.start_player:
+                self.ctx.bot.loop.create_task(self.player_loop())
+                break
 
     async def player_loop(self):
         await self.bot.wait_until_ready()
@@ -59,6 +69,7 @@ class MusicPlayer:
             await self.next.wait()
             
     async def inactivity_loop(self):
+        await self.bot.wait_until_ready()
         while True:
             try:
                 await asyncio.sleep(1)
