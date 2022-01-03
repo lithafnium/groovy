@@ -1,11 +1,11 @@
 import asyncio
 import discord
 
-from classes.Logger import print_log
+from Logger import print_log
 
 class MusicPlayer:
-    def __init__(self, ctx):
-        self.bot = ctx.bot
+    def __init__(self, ctx, bot):
+        self.bot = bot
         self._guild = ctx.guild
         self._channel = ctx.channel
         self._cog = ctx.cog
@@ -18,10 +18,20 @@ class MusicPlayer:
         self.volume = 0.5
         self.current = None
         self.ctx = ctx
-        self.ctx.bot.loop.create_task(self.player_loop())
-        self.ctx.bot.loop.create_task(self.inactivity_loop())
+        self.bot.loop.create_task(self.player_loop())
+        self.bot.loop.create_task(self.inactivity_loop())
 
         self.timer = 0
+    
+    def set_context(self, ctx):
+        self.ctx = ctx
+        self._guild = ctx.guild
+        self._channel = ctx.channel
+        self._cog = ctx.cog
+
+    def clear_queue(self):
+        self.queue_count = asyncio.Queue()
+        self.queue = []
 
     async def player_loop(self):
         await self.bot.wait_until_ready()
@@ -46,9 +56,6 @@ class MusicPlayer:
             await self.ctx.send(embed=current)
 
             print_log(f"Playing {player.title}")
-            self.np = await self._channel.send(
-                "Now playing: **{}**".format(player.title)
-            )
             await self.next.wait()
             
     async def inactivity_loop(self):
@@ -69,4 +76,8 @@ class MusicPlayer:
 
     def toggle_next(self, e):
         print_log(f"Error: {e}")
-        self.ctx.bot.loop.call_soon_threadsafe(self.next.set)
+        # FIXME: this is really stupid but it waits to be connected before going to the next
+        while(not self.ctx.voice_client.is_connected()):
+            pass
+        print_log("Calling next song from queue")
+        self.bot.loop.call_soon_threadsafe(self.next.set)
