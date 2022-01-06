@@ -1,11 +1,12 @@
-from config import GROOVY_TOKEN
-from clients.SpotifyClient import SpotifyClient
+from src.config import GROOVY_TOKEN
+from src.clients.SpotifyClient import SpotifyClient
 
 import discord
 from discord.ext import commands
 
-from classes.Logger import print_log
-from classes.MusicPlayer import MusicPlayer
+from src.classes.Logger import print_log
+from src.classes.YTDLSource import YTDLSource
+from src.classes.MusicPlayer import MusicPlayer
 
 
 class Music(commands.Cog):
@@ -43,7 +44,7 @@ class Music(commands.Cog):
         tracks = self.get_spotify(url)
 
         self.bot.music_player.track_list += tracks
-        #print(self.bot.music_player.track_list)
+        # print(self.bot.music_player.track_list)
 
         if len(tracks) > 0:
             for track in tracks:
@@ -64,7 +65,7 @@ class Music(commands.Cog):
 
             sp = SpotifyClient()
             # sort by date added, else custom order
-            if '-added' in url:
+            if "-added" in url:
                 playlist = sp.get_playlist(sp_id, True)
             else:
                 playlist = sp.get_playlist(sp_id)
@@ -141,10 +142,11 @@ class Music(commands.Cog):
                 "I am not currently playing anything!", delete_after=20
             )
 
-    @commands.command(name='loop', aliases=['l'])
+    @commands.command(name="loop", aliases=["l"])
     async def loop(self, ctx):
         if ctx.voice_client.is_playing():
             return
+
 
 def setup(bot):
     bot.add_cog(Music(bot))
