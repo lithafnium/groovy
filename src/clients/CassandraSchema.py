@@ -1,4 +1,4 @@
-from config import ASTRA_DB_ID, ASTRA_DB_REGION, ASTRA_DB_APPLICATION_TOKEN
+from src.config import ASTRA_DB_ID, ASTRA_DB_REGION, ASTRA_DB_APPLICATION_TOKEN
 ASTRA_DB_KEYSPACE = 'discordplaylists'
 
 from astrapy.client import create_astra_client

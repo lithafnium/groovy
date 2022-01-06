@@ -1,8 +1,9 @@
 import asyncio
 import discord
 
-from classes.Logger import print_log
-from classes.YTDLSource import YTDLSource
+from src.classes.Logger import print_log
+from src.classes.YTDLSource import YTDLSource
+
 
 class MusicPlayer:
     def __init__(self, ctx, bot, start_player=True):
@@ -88,17 +89,19 @@ class MusicPlayer:
                 if self.ctx.voice_client is None:
                     continue
                 print(str(e))
-    '''
+
+    """
     queue design:
 
     
-    '''
+    """
+
     async def add_track(self, name, needs_msg):
         player = await YTDLSource.from_url(name, loop=self.ctx.bot.loop)
 
         if self.ctx.voice_client.is_playing() and needs_msg:
             print_log(f"Added {player.title} to queue")
-            #await self.ctx.send("Added **{}** to the queue".format(player.title))
+            # await self.ctx.send("Added **{}** to the queue".format(player.title))
 
         self.queue.append(player)
         await self.queue_count.put(0)
