@@ -5,7 +5,6 @@ import discord
 from discord.ext import commands
 
 from classes.Logger import print_log
-from classes.YTDLSource import YTDLSource
 from classes.MusicPlayer import MusicPlayer
 
 
@@ -17,7 +16,7 @@ class Music(commands.Cog):
     async def join(self, ctx, *, channel: discord.VoiceChannel):
         """Joins a voice channel"""
         if ctx.voice_client is not None:
-            ctx.voice_client.source.volume = 35
+            ctx.voice_client.source.volume = 20
             return await ctx.voice_client.move_to(channel)
 
         await channel.connect()
@@ -38,53 +37,51 @@ class Music(commands.Cog):
         else:
             self.bot.music_player.set_context(ctx)
 
-        await self.add_queue(ctx, url)
+        await self.add_queue(url)
 
-    async def add_queue(self, ctx, url):
+    async def add_queue(self, url):
         tracks = self.get_spotify(url)
-        for track in tracks:
-            if len(tracks) > 1:
-                await self.add_track(ctx, track + "audio", False)
-                return
-            else:
-                await self.add_track(ctx, track + "audio", True)
-                return
 
-        await self.add_track(ctx, url, True)
+        self.bot.music_player.track_list += tracks
+        #print(self.bot.music_player.track_list)
+
+        if len(tracks) > 0:
+            for track in tracks:
+                if len(tracks) > 1:
+                    await self.bot.music_player.add_track(track + " audio", True)
+                else:
+                    await self.bot.music_player.add_track(track + " audio", True)
+        else:
+            await self.bot.music_player.add_track(url, True)
 
     def get_spotify(self, url):
         tracks = []
 
         if "https://open.spotify.com/playlist/" in url:
-            url = url.removesuffix("https://open.spotify.com/playlist/")
-            url = url.split("?")
-            sp_id = url[0]
+            url_id = url.removesuffix("https://open.spotify.com/playlist/")
+            url_id = url_id.split("?")
+            sp_id = url_id[0]
 
             sp = SpotifyClient()
-            playlist = sp.get_playlist(sp_id)
+            # sort by date added, else custom order
+            if '-added' in url:
+                playlist = sp.get_playlist(sp_id, True)
+            else:
+                playlist = sp.get_playlist(sp_id)
 
             for track in playlist:
                 tracks.append(track)
 
         if "https://open.spotify.com/track/" in url:
-            url = url.removesuffix("https://open.spotify.com/track/")
-            url = url.split("?")
-            sp_id = url[0]
+            url_id = url.removesuffix("https://open.spotify.com/track/")
+            url_id = url_id.split("?")
+            sp_id = url_id[0]
 
             sp = SpotifyClient()
             track = sp.get_track(sp_id)
             tracks.append(track)
 
         return tracks
-
-    async def add_track(self, ctx, name, msg):
-        player = await YTDLSource.from_url(name, loop=ctx.bot.loop)
-
-        if ctx.voice_client.is_playing() and msg:
-            print_log(f"Added {player.title} to queue")
-            await ctx.send("Added **{}** to the queue".format(player.title))
-        self.bot.music_player.queue.append(player)
-        await self.bot.music_player.queue_count.put(0)
 
     @play.before_invoke
     async def ensure_voice(self, ctx):
@@ -144,6 +141,10 @@ class Music(commands.Cog):
                 "I am not currently playing anything!", delete_after=20
             )
 
+    @commands.command(name='loop', aliases=['l'])
+    async def loop(self, ctx):
+        if ctx.voice_client.is_playing():
+            return
 
 def setup(bot):
     bot.add_cog(Music(bot))
