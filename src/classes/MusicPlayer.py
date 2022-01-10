@@ -1,9 +1,9 @@
 import asyncio
 import discord
 
-from src.classes.Logger import print_log
-from src.classes.YTDLSource import YTDLSource
-
+from classes.Logger import print_log
+from classes.YTDLSource import YTDLSource
+from classes.MusicQueue import MusicQueue
 
 class MusicPlayer:
     def __init__(self, ctx, bot, start_player=True):
@@ -16,10 +16,10 @@ class MusicPlayer:
         self.next = asyncio.Event()
         self.queue = []
         self.track_list = []
-        self.current_track = None
+        self.music_queue = MusicQueue(ctx)
 
         self.np = None  # Now playing message
-        self.current = None
+        self.is_loop =  False
         self.ctx = ctx
 
         self.start_player = start_player
@@ -50,10 +50,13 @@ class MusicPlayer:
         while not self.bot.is_closed():
             self.next.clear()
 
-            await self.queue_count.get()
-            player = self.queue.pop(0)
-            self.current = player
-
+            if not self.is_loop or self.ctx.voice_client.is_playing():
+                player = await self.music_queue.get() 
+                self.current = player
+            else:
+                # loops the last song
+                player = await YTDLSource.from_url(self.current.url, loop=self.ctx.bot.loop)
+            
             self._guild.voice_client.play(
                 player,
                 after=self.toggle_next,
@@ -89,25 +92,26 @@ class MusicPlayer:
                 if self.ctx.voice_client is None:
                     continue
                 print(str(e))
+    
+    ### ADD LOOP TO CHECK FOR LOOP
 
     """
     queue design:
 
     
     """
-
     async def add_track(self, name, needs_msg):
         player = await YTDLSource.from_url(name, loop=self.ctx.bot.loop)
 
         if self.ctx.voice_client.is_playing() and needs_msg:
             print_log(f"Added {player.title} to queue")
-            # await self.ctx.send("Added **{}** to the queue".format(player.title))
+            await self.ctx.send("Added **{}** to the queue".format(player.title))
 
-        self.queue.append(player)
-        await self.queue_count.put(0)
+        await self.music_queue.put(player)
 
     def toggle_next(self, e):
         print_log(f"Error: {e}")
+
         # FIXME: this is really stupid but it waits to be connected before going to the next
         while not self.ctx.voice_client.is_connected():
             pass

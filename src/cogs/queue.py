@@ -1,13 +1,6 @@
-from src.config import GROOVY_TOKEN
-from src.clients.SpotifyClient import SpotifyClient
 
 import discord
 from discord.ext import commands
-
-from src.classes.Logger import print_log
-from src.classes.YTDLSource import YTDLSource
-from src.classes.MusicPlayer import MusicPlayer
-
 
 class Queue(commands.Cog):
     def __init__(self, bot):

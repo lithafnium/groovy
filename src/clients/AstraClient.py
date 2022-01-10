@@ -2,8 +2,7 @@ import datetime
 
 from cassandra.util import max_uuid_from_time
 
-from src.config import ASTRA_DB_ID, ASTRA_DB_REGION, ASTRA_DB_APPLICATION_TOKEN
-from typing import List
+from config import ASTRA_DB_ID, ASTRA_DB_REGION, ASTRA_DB_APPLICATION_TOKEN
 from astrapy.client import create_astra_client
 
 ASTRA_DB_KEYSPACE = "discordplaylists"

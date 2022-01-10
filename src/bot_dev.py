@@ -1,17 +1,12 @@
 from config import GROOVY_TOKEN
-from clients.SpotifyClient import SpotifyClient
 
-import asyncio
-import discord
 from discord.ext import commands
 
 from classes.Logger import print_log
-from classes.YTDLSource import YTDLSource
-from classes.MusicPlayer import MusicPlayer
 
 
 bot = commands.Bot(
-    command_prefix=commands.when_mentioned_or("!"),
+    command_prefix=commands.when_mentioned_or("%"),
     description="Relatively simple music bot example",
 )
 

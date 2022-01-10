@@ -92,7 +92,7 @@ class Music(commands.Cog):
         """Stops and disconnects the bot from voice"""
         await ctx.voice_client.disconnect()
 
-    @commands.command(name="pause", aliases=["p"])
+    @commands.command(name="pause")
     async def pause(self, ctx):
         if not ctx.voice_client or not ctx.voice_client.is_playing():
             return await ctx.send(

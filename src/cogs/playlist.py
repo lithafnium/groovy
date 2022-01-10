@@ -1,14 +1,9 @@
 import datetime
-import discord
 
 from typing import List
 from discord.ext import commands
 
-from src.clients.AstraClient import AstraClient
-
-from src.classes.Logger import print_log
-from src.classes.YTDLSource import YTDLSource
-from src.classes.MusicPlayer import MusicPlayer
+from clients.AstraClient import AstraClient
 
 
 class Playlist(commands.Cog):
