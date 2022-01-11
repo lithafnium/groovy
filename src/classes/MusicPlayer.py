@@ -16,7 +16,7 @@ class MusicPlayer:
         self.next = asyncio.Event()
         self.queue = []
         self.track_list = []
-        self.music_queue = MusicQueue(ctx)
+        self.music_queue = MusicQueue(bot)
 
         self.np = None  # Now playing message
         self.is_loop =  False
@@ -101,7 +101,7 @@ class MusicPlayer:
     
     """
     async def add_track(self, name, needs_msg):
-        player = await YTDLSource.from_url(name, loop=self.ctx.bot.loop)
+        player = await YTDLSource.from_url(name, loop=self.bot.loop)
 
         if self.ctx.voice_client.is_playing() and needs_msg:
             print_log(f"Added {player.title} to queue")

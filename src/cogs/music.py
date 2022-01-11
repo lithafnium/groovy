@@ -17,7 +17,6 @@ class Music(commands.Cog):
     async def join(self, ctx, *, channel: discord.VoiceChannel):
         """Joins a voice channel"""
         if ctx.voice_client is not None:
-            ctx.voice_client.source.volume = 1
             return await ctx.voice_client.move_to(channel)
 
         await channel.connect()
@@ -27,34 +26,36 @@ class Music(commands.Cog):
     async def play(self, ctx, *, url=None):
         await ctx.trigger_typing()
 
+        music_player = self.bot.guild_players.get(ctx.guild.id)
+
         # if just play entered, resumes paused song or starts the currently queued songs
         if url is None:
-            if self.bot.music_player is not None:
+            if music_player is not None:
                 await self.resume(ctx)
-                self.bot.music_player.start_player = True
-            return
-
-        if self.bot.music_player is None:
-            self.bot.music_player = MusicPlayer(ctx, self.bot)
+                music_player.start_player = True
         else:
-            self.bot.music_player.set_context(ctx)
+            if music_player is None:
+                self.bot.guild_players[ctx.guild.id] = MusicPlayer(ctx, self.bot)
+                music_player = self.bot.guild_players.get(ctx.guild.id)
+            else:
+                music_player.set_context(ctx)
 
-        await self.add_queue(url)
+            await self.add_queue(url, music_player)
 
-    async def add_queue(self, url):
+    async def add_queue(self, url, music_player):
         tracks = self.get_spotify(url)
 
-        self.bot.music_player.track_list += tracks
+        music_player.track_list += tracks
         # print(self.bot.music_player.track_list)
 
         if len(tracks) > 0:
             for track in tracks:
                 if len(tracks) > 1:
-                    await self.bot.music_player.add_track(track + " audio", True)
+                    await music_player.add_track(track + " audio", False)
                 else:
-                    await self.bot.music_player.add_track(track + " audio", True)
+                    await music_player.add_track(track + " audio", True)
         else:
-            await self.bot.music_player.add_track(url, True)
+            await music_player.add_track(url, True)
 
     def get_spotify(self, url):
         tracks = []

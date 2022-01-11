@@ -11,6 +11,7 @@ bot = commands.Bot(
 )
 
 bot.music_player = None
+bot.guild_players = {}
 
 
 bot.load_extension("cogs.music")
