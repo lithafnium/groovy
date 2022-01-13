@@ -1,9 +1,8 @@
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 
-from src.config import SPOTIFY_ID
-from src.config import SPOTIFY_SECRET
-
+from config import SPOTIFY_ID
+from config import SPOTIFY_SECRET
 
 class SpotifyClient:
     def __init__(self):

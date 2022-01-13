@@ -1,13 +1,13 @@
-from src.config import GROOVY_TOKEN
-from src.clients.SpotifyClient import SpotifyClient
+from clients.SpotifyClient import SpotifyClient
 
 import discord
 from discord.ext import commands
 
-from src.classes.Logger import print_log
-from src.classes.YTDLSource import YTDLSource
-from src.classes.MusicPlayer import MusicPlayer
+from classes.Logger import print_log
+from classes.MusicPlayer import MusicPlayer
 
+#test imports
+from classes.MusicQueue import MusicQueue
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -17,7 +17,6 @@ class Music(commands.Cog):
     async def join(self, ctx, *, channel: discord.VoiceChannel):
         """Joins a voice channel"""
         if ctx.voice_client is not None:
-            ctx.voice_client.source.volume = 20
             return await ctx.voice_client.move_to(channel)
 
         await channel.connect()
@@ -27,33 +26,36 @@ class Music(commands.Cog):
     async def play(self, ctx, *, url=None):
         await ctx.trigger_typing()
 
+        music_player = self.bot.guild_players.get(ctx.guild.id)
+
+        # if just play entered, resumes paused song or starts the currently queued songs
         if url is None:
-            if self.bot.music_player is not None:
+            if music_player is not None:
                 await self.resume(ctx)
-                self.bot.music_player.start_player = True
-            return
-
-        if self.bot.music_player is None:
-            self.bot.music_player = MusicPlayer(ctx, self.bot)
+                music_player.start_player = True
         else:
-            self.bot.music_player.set_context(ctx)
+            if music_player is None:
+                self.bot.guild_players[ctx.guild.id] = MusicPlayer(ctx, self.bot)
+                music_player = self.bot.guild_players.get(ctx.guild.id)
+            else:
+                music_player.set_context(ctx)
 
-        await self.add_queue(url)
+            await self.add_queue(url, music_player)
 
-    async def add_queue(self, url):
+    async def add_queue(self, url, music_player):
         tracks = self.get_spotify(url)
 
-        self.bot.music_player.track_list += tracks
+        music_player.track_list += tracks
         # print(self.bot.music_player.track_list)
 
         if len(tracks) > 0:
             for track in tracks:
                 if len(tracks) > 1:
-                    await self.bot.music_player.add_track(track + " audio", True)
+                    await music_player.add_track(track + " audio", False)
                 else:
-                    await self.bot.music_player.add_track(track + " audio", True)
+                    await music_player.add_track(track + " audio", True)
         else:
-            await self.bot.music_player.add_track(url, True)
+            await music_player.add_track(url, True)
 
     def get_spotify(self, url):
         tracks = []
@@ -136,17 +138,29 @@ class Music(commands.Cog):
     @commands.command()
     async def skip(self, ctx):
         if ctx.voice_client.is_playing():
+            self.bot.music_play.is_loop = False
             ctx.voice_client.stop()
         else:
             return await ctx.send(
                 "I am not currently playing anything!", delete_after=20
             )
 
-    @commands.command(name="loop", aliases=["l"])
+    @commands.command(name="loop", aliases=["l", 'repeat'])
     async def loop(self, ctx):
         if ctx.voice_client.is_playing():
-            return
+            self.bot.music_player.is_loop = not self.bot.music_player.is_loop
+        else:
+            return await ctx.send(
+                "I am not currently playing anything!", delete_after=20
+            )
 
+    @commands.command()
+    async def test(self, ctx):
+        array = ['blue notes meek mill', '1 step forward 2 steps back', 'chronomentrophoba', 'funkin around outcast', 'liberation with cee lo']
+        queue = MusicQueue(ctx)
+        queue.track_list = array
+        print(queue.track_list)
+        await queue.load()
 
 def setup(bot):
     bot.add_cog(Music(bot))
